@@ -1,149 +1,276 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.CSharp.RuntimeBinder;
-using System.Xml.Serialization;
 using static System.Console;
-using System.Drawing; //per scrivere solo read e write invece che console. 
-
-namespace ConsoleAppPonte
+//Maria Rossi 4H
+namespace Ponte_Levatoio
 {
-    internal class Program
+    class Program
     {
-        //ponte che permette passaggio di veicoli, più di uno alla volta per corsia
-        //in ciascuna corsia invece può passare una macchina alla volta
+        const int MAX_AUTO_SUL_PONTE = 4;
+        const int CONSOLE_LENGTH = 115;
+        const int CONSOLE_HEIGHT = 29;
+        const int MAX_WAITING_AUTO = 10;
 
-        static Object _lockConsole = new Object();
+        static SemaphoreSlim _sem = new SemaphoreSlim(MAX_AUTO_SUL_PONTE);
+        static List<Thread> Waiting_Threads = new List<Thread>();
+        static Thread[] Active_Threads = new Thread[MAX_AUTO_SUL_PONTE];
+        static int[] positions = new int[MAX_AUTO_SUL_PONTE];
+        static int auto_counter = 0;
+        static int waiting_auto_counter = 0;
 
-        static Thread thM1, thM2, thM3, thM4;
+        static Object _lock = new Object();
+        static Random rnd = new Random();
 
-        static void start()
+        static bool ponteChiuso = false;
+
+        static void StampaMappa()
         {
-            ForegroundColor = ConsoleColor.Cyan;
-            WriteLine("     ~~~~~~~~~~~~~~~~~~~~~~MARIA ROSSI~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            ForegroundColor = ConsoleColor.Gray;
-            WriteLine("════════════════════════════════════════════════════════════════════════════");
-            WriteLine("");
-            WriteLine("");
-            WriteLine("");
-            WriteLine("");
-            WriteLine("════════════════════════════════════════════════════════════════════════════");
-            ForegroundColor = ConsoleColor.Cyan;
-            WriteLine("          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            WriteLine("        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-
-        }
-
-        static void Macchine_r1()
-        {
-            ForegroundColor = ConsoleColor.Red;
-
-            int posM = 10;
-
-            do
+            lock (_lock)
             {
-                posM++;
-                Scrivi(posM, 10, "      ╔╦ð         ");
-            } while (posM < 110);
-
-            lock (_lockConsole)
-            {
-                SetCursorPosition(112, 2);
-            }
-        }
-        static void Macchine_r2()
-        {
-            ForegroundColor = ConsoleColor.Yellow;
-
-            int posM = 11;
-
-            do
-            {
-                posM++;
-                Scrivi(posM, 11, "      ╔╦ð         ");
-            } while (posM < 110);
-
-            lock (_lockConsole)
-            {
-                SetCursorPosition(112, 2);
-            }
-        }
-        static void Macchine_r3()
-        {
-            ForegroundColor = ConsoleColor.Green;
-
-            int posM = 12;
-
-            do
-            {
-                posM++;
-                Scrivi(posM, 12, "      ╔╦ð         ");
-            } while (posM < 110);
-
-            lock (_lockConsole)
-            {
-                SetCursorPosition(112, 2);
-            }
-        }
-        static void Macchine_r4()
-        {
-            ForegroundColor = ConsoleColor.Blue;
-            int posM = 13;
-
-            do
-            {
-                posM++;
-                Scrivi(posM, 13, "      ╔╦ð         ");
-            } while (posM < 110);
-
-            lock (_lockConsole)
-            {
-                SetCursorPosition(112, 2);
+                ForegroundColor = ConsoleColor.Cyan;
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░▓▓▓▓░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░▓▓░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░▓▓▓▓░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░▓░▓░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░▓▓░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░▓░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                WriteLine("                                           ║░░░░░░░░░░░░░░░░░░░░░░░░░░░║                                           ");
+                ForegroundColor = ConsoleColor.White;
             }
         }
 
-        static void Scrivi(int col, int row, string str)
+        static void StampaComandi()
         {
+            lock (_lock)
+            {
+                SetCursorPosition(90, 1);
+                Write("COMMANDS");
+                SetCursorPosition(90, 2);
+                Write("<A> Add car");
+                SetCursorPosition(90, 3);
+                Write("<O> Open bridge");
+                SetCursorPosition(90, 4);
+                Write("<C> Close bridge");
+                SetCursorPosition(90, 5);
+                Write("<Q> Quit");
+            }
+        }
+
+        static void ChiudiP()
+        {
+            ponteChiuso = false;
+
+            lock (_lock)
+            {
+                SetCursorPosition(0, 12);
+                Write("═════════════════════════════════════════╗                               ╔═════════════════════════════════════════");
+                SetCursorPosition(41, 13);
+                Write("║                               ║");
+                SetCursorPosition(41, 14);
+                Write("║                               ║");
+                SetCursorPosition(41, 15);
+                Write("║                               ║");
+                SetCursorPosition(41, 16);
+                Write("║                               ║");
+                SetCursorPosition(0, 17);
+                Write("═════════════════════════════════════════╝                               ╚═════════════════════════════════════════");
+
+                ForegroundColor = ConsoleColor.Cyan;
+                for (int i = 0; i < 7; i++)
+                {
+                    SetCursorPosition(43, 12 + i);
+                    Write("║░░░░░░░░░░░░░░░░░░░░░░░░░░░║");
+                }
+                ForegroundColor = ConsoleColor.White;
+            }
+        }
+
+        static void ApriP()
+        {
+            if (ponteChiuso) return;
+
+            ponteChiuso = true;
+
+            lock (_lock)
+            {
+                SetCursorPosition(0, 12);
+                Write("═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════");
+                SetCursorPosition(41, 13);
+                Write("                                 ");
+                SetCursorPosition(41, 14);
+                Write("                                 ");
+                SetCursorPosition(41, 15);
+                Write("                                 ");
+                SetCursorPosition(41, 16);
+                Write("                                 ");
+                SetCursorPosition(0, 17);
+                Write("═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════");
+            }
+        }
+
+        static void AggiungiAuto()
+        {
+            if (waiting_auto_counter >= MAX_WAITING_AUTO) return;
+
+            waiting_auto_counter += 1;
+            Thread new_thread = new Thread(Auto);
+            new_thread.Name = $"Auto {auto_counter++}";
+            Waiting_Threads.Add(new_thread);
+            UpdateThreadList();
+            new_thread.Start();
+        }
+
+        static void UpdateThreadList()
+        {
+            lock (_lock)
+            {
+                for (int i = 0; i < Waiting_Threads.Count; i++)
+                {
+                    SetCursorPosition(5, i);
+                    Write(Waiting_Threads[i].Name);
+                }
+                SetCursorPosition(5, Waiting_Threads.Count);
+                Write("            ");
+            }
+        }
+
+        static bool CheckAutoSulPonte()
+        {
+            bool auto_sul_ponte = false;
+            for (int i = 0; i < Active_Threads.Length; i++)
+            {
+                if (Active_Threads[i] is null || Active_Threads[i].ThreadState == ThreadState.Stopped) continue;
+
+                int current_Thread_Name_Length = Active_Threads[i].Name.Length;
+                if (positions[i] + current_Thread_Name_Length > 40 && positions[i] + current_Thread_Name_Length < 80) auto_sul_ponte = true;
+            }
+
+            return auto_sul_ponte;
+        }
+
+        static void Quit()
+        {
+            for (int i = 0; i < Waiting_Threads.Count; i++)
+            {
+                Waiting_Threads[i].Abort();
+            }
+
+            for (int i = 0; i < Active_Threads.Length; i++)
+            {
+                if (Active_Threads[i] is null || Active_Threads[i].ThreadState == ThreadState.Stopped) continue;
+                Active_Threads[i].Abort();
+            }
+        }
+
+        static void Auto()
+        {
+            _sem.Wait();
             Thread.Sleep(50);
-            lock (_lockConsole)
+
+            Waiting_Threads.RemoveAt(Waiting_Threads.IndexOf(Thread.CurrentThread));
+            UpdateThreadList();
+            waiting_auto_counter -= 1;
+
+            int x = 0;
+            int y = 13;
+            for (int i = 0; i < MAX_AUTO_SUL_PONTE; i++)
             {
-                SetCursorPosition(col, row);
-                Write(@str);
+                if (Active_Threads[i] is null || Active_Threads[i].ThreadState == ThreadState.Stopped) //find first free spot in active threads
+                {
+                    y += i;
+                    Active_Threads[i] = Thread.CurrentThread;
+                    break;
+                }
             }
+
+
+            int speed = rnd.Next(50, 200);
+            for (int i = 0; i < CONSOLE_LENGTH - Thread.CurrentThread.Name.Length; i++)
+            {
+                Thread.Sleep(speed);
+                positions[y - 13] = i;
+
+                while (i == 40 - Thread.CurrentThread.Name.Length && !ponteChiuso)
+                    Thread.Sleep(500);
+
+                lock (_lock)
+                {
+                    SetCursorPosition(x + i, y);
+                    Write(' ' + Thread.CurrentThread.Name + ' ');
+                }
+            }
+
+            _sem.Release();
         }
 
         static void Main(string[] args)
         {
+            Title = "Maria Rossi 4H";
+            OutputEncoding = Encoding.Unicode;
             CursorVisible = false;
-            start();
-            thM1 = new Thread(Macchine_r1);
-            thM2 = new Thread(Macchine_r2);
-            thM3 = new Thread(Macchine_r3);
-            thM4 = new Thread(Macchine_r4);
-            thM1.Start();
-            thM2.Start();
-            thM3.Start();
 
+            StampaMappa();
+            StampaComandi();
+            ChiudiP();
 
-            thM4.Start();
+            while (true)
+            {
+                if (KeyAvailable)
+                {
+                    //lettura comando utente
+                    char c = char.ToUpper(ReadKey(true).KeyChar);
+                    switch (c)
+                    {
+                        case 'A':
+                            AggiungiAuto();
+                            break;
+
+                        case 'C':
+                            if (!CheckAutoSulPonte()) ChiudiP();
+                            break;
+
+                        case 'O':
+                            ApriP();
+
+                            break;
+
+                        case 'Q':
+                            Quit();
+                            return;
+
+                        default:
+                            break;
+                    }
+                }
+            }
+            ReadKey(true);
         }
     }
 }
